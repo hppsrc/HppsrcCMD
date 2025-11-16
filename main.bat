@@ -1,11 +1,11 @@
 @ECHO OFF
-@REM Hppsrc Custom Ventoy Terminal
+@REM Hppsrc CMD
 SETLOCAL EnableDelayedExpansion
 @SET "_temp="
 IF /I [%1]==[DEV] ( @ECHO DEBUG MODE ENABLE && ECHO ON )
-IF /I [%1]==[RESTART] ( SET "_temp=^[RESTARTED^]" )
-@SET "cmd_VERSION=1.4.0" && @SET "cmd_BUILD=25110512" && @SET /A cmd_STATIC_RANDOM=(%RANDOM%%%(999-100+1))+999 && @SET "cmd_RUNTIME=%TIME%" && TITLE Hppsrc CMD %cmd_VERSION%
-@SET "COMMANDS=help version exit restart shutdown code cmd cls calc py admin"
+IF /I [%1]==[RESTART] ( SET "_temp= ^[RESTARTED^]" )
+@SET "cmd_VERSION=1.5.0" && @SET "cmd_BUILD=25111108" && @SET /A cmd_STATIC_RANDOM=(%RANDOM%%%(999-100+1))+999 && @SET "cmd_RUNTIME=%TIME%" && @SET "cmd_TEMP_FOLDER=%temp%\Hppsrc_CMD" && TITLE Hppsrc CMD %cmd_VERSION%
+@SET "COMMANDS=help version exit restart shutdown code cmd cls calc py admin folder powershell pwsh ps scrcpy"
 CD /d %~dp0
 
 
@@ -17,7 +17,7 @@ CD /d %~dp0
 :PRECONFIG
 ECHO Loading preconfig...
 
-ECHO Checking ShareX...
+ECHO - Checking ShareX...
 SET "sharex_folder="
 FOR /F "delims=" %%A IN ('DIR /B /AD "%~dp0Programas\ShareX-*-portable" 2^>nul ^| SORT /R') DO (
     SET "sharex_folder=%%A"
@@ -28,10 +28,24 @@ IF DEFINED sharex_folder (
     TASKLIST /FI "IMAGENAME eq ShareX.exe" | FIND /I "ShareX.exe" >NUL || START "ShareX Portable" /MIN /REALTIME "%~dp0Programas\%sharex_folder%\ShareX.exe"
 )
 
-ECHO Start Chrome as guest...
-start "" /min "chrome" --guest
+ECHO - Start Chrome as guest...
+mkdir %cmd_TEMP_FOLDER%\ChromeGuest
+mkdir %cmd_TEMP_FOLDER%\ChromeCache
+mkdir %cmd_TEMP_FOLDER%\ChromeDownload
+start "" /min "chrome" --guest --user-data-dir="%cmd_TEMP_FOLDER%\ChromeGuest" --disk-cache-dir="%cmd_TEMP_FOLDER%\ChromeCache" --download.default_directory="%cmd_TEMP_FOLDER%\ChromeDownload" "https://discord.com/login" "https://accounts.google.com/ServiceLogin"
 
-ECHO Cheking admin...
+ECHO - Creating temporal folder...
+MKDIR %cmd_TEMP_FOLDER%
+ECHO RMDIR %cmd_TEMP_FOLDER% ^/Q ^/S > "%appdata%\Microsoft\Windows\Start Menu\Programs\Startup\autoclean.bat"
+ECHO DEL "%appdata%\Microsoft\Windows\Start Menu\Programs\Startup\autoclean.bat" >> "%appdata%\Microsoft\Windows\Start Menu\Programs\Startup\autoclean.bat"
+
+ECHO - Setting ES_ES Keyboard
+powershell.exe "Set-WinUserLanguageList (New-WinUserLanguageList es-ES) -Force"
+
+ECHO - Creating ScrCpy data...
+powershell.exe Expand-Archive %~dp0\Programas\ScrCpy\data.zip -DestinationPath %cmd_TEMP_FOLDER%\ScrCpyData\
+
+ECHO - Cheking admin...
 net session >nul 2>&1
 IF %ERRORLEVEL% == 0 (
     SET "cmd_ADMIN=[ADMIN]"
@@ -58,15 +72,19 @@ ECHO Old volume applet...
 reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\MTCUVC" /v "EnableMtcUvc" /t REG_DWORD /d 0 /f
 
 ECHO Theme toggler...
-reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /v "MUIVerb" /d "Set Windows theme" /f
-reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /v "Icon" /d "%%SystemRoot%%\System32\imageres.dll,-183" /f
-reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /v "SubCommands" /d "" /f
+REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /v "MUIVerb" /d "Set Windows theme" /f
+REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /v "Icon" /d "%%SystemRoot%%\System32\imageres.dll,-183" /f
+REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /v "SubCommands" /d "" /f
 
 REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme\shell\Dark" /v "MUIVerb" /d "Enable Dark mode" /f
 REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme\shell\Dark\command" /ve /d "cmd /q /c \"taskkill /im explorer.exe /f && reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v AppsUseLightTheme REM /t REG_DWORD /d 0 /f && reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v SystemUsesLightTheme /t REG_DWORD /d 0 /f && start explorer.exe\"" /f
 
 REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme\shell\Light" /v "MUIVerb" /d "Enable Light mode" /f
 REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme\shell\Light\command" /ve /d "cmd /q /c \"taskkill /im explorer.exe /f && reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v AppsUseLightTheme /t REG_DWORD /d 1 /f && reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v SystemUsesLightTheme /t REG_DWORD /d 1 /f && start explorer.exe\"" /f
+
+TASKKILL /im EXPLORER.EXE /F
+TIMEOUT /T 1
+START EXPLORER.EXE
 
 :FROM_RESTART
 
@@ -91,6 +109,11 @@ IF /I [!_cmd!]==[CLS] (GOTO :CLS)
 IF /I [!_cmd!]==[CALC] (GOTO :CALC)
 IF /I [!_cmd!]==[PY] (GOTO :PY)
 IF /I [!_cmd!]==[ADMIN] (GOTO :ADMIN)
+IF /I [!_cmd!]==[FOLDER] (GOTO :FOLDER)
+IF /I [!_cmd!]==[PS] (GOTO :POWERSHELL)
+IF /I [!_cmd!]==[PWSH] (GOTO :POWERSHELL)
+IF /I [!_cmd!]==[POWERSHELL] (GOTO :POWERSHELL)
+IF /I [!_cmd!]==[SCRCPY] (GOTO :SCRCPY)
 @REM #endregion
 
 
@@ -135,11 +158,12 @@ ECHO    EXIT        Close Hppsrc CMD ^*
 ECHO    RESTART     Restart the current Hppsrc CMD session ^*^*
 ECHO    SHUTDOWN    Shutdown the PC ^*
 ECHO    CODE        Launch VS Code in isolated mode
-ECHO    CMD         Open a new Windows CMD window
+ECHO    CMD         Open a new CMD window
 ECHO    CLS         Clear screen and refresh Hppsrc CMD
 ECHO    CALC        Open a simple CLI based calculator
 ECHO    PY          Open a Python CLI ^(Args allowed^)
 ECHO    ADMIN       Tries to restart as admin
+ECHO    PS^/PWSH    Open a new Powershell window
 ECHO.
 ECHO ^*    Requires confirmation code
 ECHO ^*^*   Doesn^'t unset any config
@@ -147,7 +171,7 @@ GOTO :END
 
 
 :VERSION
-ECHO Ventoy CMD ^| Version %cmd_VERSION% ^(%cmd_BUILD%^)
+ECHO Hppsrc CMD ^| Version %cmd_VERSION% ^(%cmd_BUILD%^)
 GOTO :END
 
 
@@ -161,6 +185,7 @@ IF /I "%cmd_CONFIRM%"=="%cmd_STATIC_RANDOM%" (
     ECHO Closing Ventoy CMD...
     TIMEOUT /T 1 >nul
     GOTO :KILL_UNCONFIG
+    GOTO :EXIT
 ) ELSE (
     ECHO Incorrect code. Type EXIT again to retry.
     GOTO :LOOP
@@ -182,8 +207,8 @@ SET /P "cmd_CONFIRM=> "
 
 IF /I "%cmd_CONFIRM%"=="%cmd_STATIC_RANDOM%" (
     ECHO Shutdown PC...
-    SET "cmd_POST_EXECUTION=shutdown ^/f ^/t 0 ^/s"
     GOTO :KILL_UNCONFIG
+    shutdown /f /t 0 /s
 ) ELSE (
     ECHO Incorrect code. Type EXIT again to retry.
     GOTO :LOOP
@@ -193,7 +218,7 @@ GOTO :END
 
 :CODE
 ECHO VScode started...
-START "" /SEPARATE /REALTIME code --extensions-dir "%temp%\vs-extension" --user-data-dir "%temp%\vsdata"
+START "" /SEPARATE /REALTIME code --extensions-dir "%cmd_TEMP_FOLDER%\vs-extension" --user-data-dir "%cmd_TEMP_FOLDER%\vsdata"
 GOTO :END
 
 
@@ -242,6 +267,22 @@ IF DEFINED cmd_ADMIN (
 GOTO :END
 
 
+:FOLDER
+ECHO Starting temp folder...
+START %cmd_TEMP_FOLDER%
+GOTO :END
+
+
+:POWERSHELL
+ECHO Starting Powershell...
+REM Add 5/7 check
+START powershell.exe
+GOTO :END
+
+
+:SCRCPY
+ECHO Starting ScrCpy...
+start "ScrCpy" /separate "%cmd_TEMP_FOLDER%\ScrCpyData\scrcpy.exe" -b 5M -m 900 --max-fps=40 --video-codec=h264 --no-audio-playbackreGOTO :END
 @REM #endregion
 
 
@@ -265,6 +306,8 @@ reg delete "HKEY_CLASSES_ROOT\*\shell\Open With Notepad" /f
 reg delete "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v "ShowSecondsInSystemClock" /f
 reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\MTCUVC" /v "EnableMtcUvc" /f
 reg delete "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /f
+
+GOTO :EOF
 
 :EXIT
 ENDLOCAL
