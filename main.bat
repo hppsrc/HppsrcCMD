@@ -1,9 +1,9 @@
 @REM Hppsrc Custom Ventoy Terminal
 @ECHO OFF && IF /I [%1]==[DEV] (@ECHO DEBUG MODE ENABLE && ECHO ON ) && IF EXIST dev.txt (@ECHO DEBUG MODE ENABLE && ECHO ON )
-@SET "cmd_VERSION=1.2.0" && @SET "cmd_BUILD=25110111" && @SET /A cmd_STATIC_RANDOM=(%RANDOM%%%(999-100+1))+999 && @SET "cmd_RUNTIME=%TIME%" && TITLE Hppsrc CMD %cmd_VERSION%
-@SET "COMMANDS=help version exit restart shutdown code cmd cls calc py"
+@SET "cmd_VERSION=1.3.0" && @SET "cmd_BUILD=25110113" && @SET /A cmd_STATIC_RANDOM=(%RANDOM%%%(999-100+1))+999 && @SET "cmd_RUNTIME=%TIME%" && TITLE Hppsrc CMD %cmd_VERSION%
+@SET "COMMANDS=help version exit restart shutdown code cmd cls calc py admin"
 SETLOCAL EnableDelayedExpansion
-CD %~dp0
+CD /d %~dp0
 
 
 
@@ -14,22 +14,22 @@ CD %~dp0
 :PRECONFIG
 ECHO Loading preconfig...
 ECHO Checking ShareX...
-@REM Busca la carpeta de ShareX mas reciente. El GOTO rompe el bucle al encontrar la primera (y mas nueva).
 SET "sharex_folder="
 FOR /F "delims=" %%A IN ('DIR /B /AD "%~dp0Programas\ShareX-*-portable" 2^>nul ^| SORT /R') DO (
     SET "sharex_folder=%%A"
     GOTO :found_sharex
 )
 :found_sharex
-
-@REM Si se encontro la carpeta, revisa si el proceso ya existe. Si no existe (||), lo inicia.
 IF DEFINED sharex_folder (
-    TASKLIST /FI "IMAGENAME eq ShareX.exe" | FIND /I "ShareX.exe" >NUL || START "ShareX Portable" /MIN "%~dp0Programas\%sharex_folder%\ShareX.exe"
+    TASKLIST /FI "IMAGENAME eq ShareX.exe" | FIND /I "ShareX.exe" >NUL || START "ShareX Portable" /MIN /REALTIME "%~dp0Programas\%sharex_folder%\ShareX.exe"
 )
 
-@REM GOTO ADMIN_CHECK
+ECHO Cheking admin...
+net session >nul 2>&1
+IF %ERRORLEVEL% == 0 (
+    SET "cmd_ADMIN=[ADMIN]"
+)
 
-@REM GOTO ADMIN_CHECK
 
 GOTO :MAIN
 @REM #endregion
@@ -41,16 +41,17 @@ GOTO :MAIN
 @REM #region INTERNAL
 :COMMANDS
 ECHO --------------------
-IF /I [%INPUT%]==[HELP] (GOTO :HELP)
-IF /I [%INPUT%]==[VERSION] (GOTO :VERSION)
-IF /I [%INPUT%]==[EXIT] (GOTO :EXIT)
-IF /I [%INPUT%]==[RESTART] (GOTO :RESTART)
-IF /I [%INPUT%]==[SHUTDOWN] (GOTO :SHUTDOWN)
-IF /I [%INPUT%]==[CODE] (GOTO :CODE)
-IF /I [%INPUT%]==[CMD] (GOTO :CMD)
-IF /I [%INPUT%]==[CLS] (GOTO :CLS)
-IF /I [%INPUT%]==[CALC] (GOTO :CALC)
-IF /I [%INPUT%]==[PY] (GOTO :PY)
+IF /I [!_cmd!]==[HELP] (GOTO :HELP)
+IF /I [!_cmd!]==[VERSION] (GOTO :VERSION)
+IF /I [!_cmd!]==[EXIT] (GOTO :EXIT)
+IF /I [!_cmd!]==[RESTART] (GOTO :RESTART)
+IF /I [!_cmd!]==[SHUTDOWN] (GOTO :SHUTDOWN)
+IF /I [!_cmd!]==[CODE] (GOTO :CODE)
+IF /I [!_cmd!]==[CMD] (GOTO :CMD)
+IF /I [!_cmd!]==[CLS] (GOTO :CLS)
+IF /I [!_cmd!]==[CALC] (GOTO :CALC)
+IF /I [!_cmd!]==[PY] (GOTO :PY)
+IF /I [!_cmd!]==[ADMIN] (GOTO :ADMIN)
 @REM #endregion
 
 
@@ -60,14 +61,22 @@ IF /I [%INPUT%]==[PY] (GOTO :PY)
 @REM #region MAIN
 :MAIN
 IF /I NOT [%1]==[DEV] (@CLS )
-ECHO Hppsrc CMD ^| %cmd_VERSION%
+ECHO Hppsrc CMD ^| %cmd_VERSION% %cmd_ADMIN%
 ECHO Type HELP for help
 ECHO ====================
 :LOOP
+SET "INPUT="
 SET /P "INPUT=%time% | %CD%> "
-ECHO !COMMANDS! | findstr /i "\<%INPUT%\>" >nul
-IF NOT ERRORLEVEL 1 ( GOTO :COMMANDS ) ELSE ( %INPUT% )
+IF NOT DEFINED INPUT GOTO LOOP
+FOR /F "tokens=1,*" %%A IN ("!INPUT!") DO (
+    SET "_cmd=%%A"
+    SET "_args=%%B"
+)
+
+ECHO !COMMANDS! | findstr /i "\<!_cmd!\>" >nul
+IF NOT ERRORLEVEL 1 ( GOTO :COMMANDS ) ELSE ( !INPUT! )
 GOTO :LOOP
+
 @REM #endregion
 
 
@@ -90,6 +99,7 @@ ECHO    CODE        Launch VS Code in isolated mode
 ECHO    CMD         Open a new Windows CMD window
 ECHO    CLS         Clear screen and refresh Hppsrc CMD
 ECHO    CALC        Open a simple CLI based calculator
+ECHO    PY          Open a Python CLI ^(Args allowed^)
 ECHO.
 ECHO ^* Requires confirmation code
 GOTO :END
@@ -138,18 +148,22 @@ IF /I "%cmd_CONFIRM%"=="%cmd_STATIC_RANDOM%" (
 )
 GOTO :END
 
+
 :CODE
 ECHO Vscode started...
 START "" /SEPARATE /REALTIME code --extensions-dir "%temp%\vs-extension" --user-data-dir "%temp%\vsdata"
 GOTO :END
+
 
 :CMD
 ECHO CMD started...
 START /SEPARATE /REALTIME "cmd"
 GOTO :END
 
+
 :CLS
 GOTO :MAIN
+
 
 :CALC
 ECHO Type operation
@@ -164,12 +178,27 @@ IF ERRORLEVEL 1 (
 )
 GOTO :END
 
+
 :PY
-ECHO Python started...
+ECHO Starting Python...
 IF EXIST "%~dp0Programas\Python\python.exe" (
-    START "Python Embedded" "%~dp0Programas\Python\python.exe"
+    START "Python: !_args!" "%~dp0Programas\Python\python.exe" !_args!
+) ELSE (
+    ECHO Python not found.
 )
 GOTO :END
+
+
+:ADMIN
+IF DEFINED cmd_ADMIN (
+    ECHO You're already admin.
+) ELSE (
+    ECHO Restarting as admin...
+    powershell -command "Start-Process -FilePath '%~f0' -Verb RunAs" >nul 2>&1
+    GOTO :KILL
+)
+GOTO :END
+
 
 @REM #endregion
 
