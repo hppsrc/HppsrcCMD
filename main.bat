@@ -1,8 +1,11 @@
+@ECHO OFF
 @REM Hppsrc Custom Ventoy Terminal
-@ECHO OFF && IF /I [%1]==[DEV] (@ECHO DEBUG MODE ENABLE && ECHO ON ) && IF EXIST dev.txt (@ECHO DEBUG MODE ENABLE && ECHO ON )
-@SET "cmd_VERSION=1.3.0" && @SET "cmd_BUILD=25110113" && @SET /A cmd_STATIC_RANDOM=(%RANDOM%%%(999-100+1))+999 && @SET "cmd_RUNTIME=%TIME%" && TITLE Hppsrc CMD %cmd_VERSION%
-@SET "COMMANDS=help version exit restart shutdown code cmd cls calc py admin"
 SETLOCAL EnableDelayedExpansion
+@SET "_temp="
+IF /I [%1]==[DEV] ( @ECHO DEBUG MODE ENABLE && ECHO ON )
+IF /I [%1]==[RESTART] ( SET "_temp=^[RESTARTED^]" )
+@SET "cmd_VERSION=1.4.0" && @SET "cmd_BUILD=25110512" && @SET /A cmd_STATIC_RANDOM=(%RANDOM%%%(999-100+1))+999 && @SET "cmd_RUNTIME=%TIME%" && TITLE Hppsrc CMD %cmd_VERSION%
+@SET "COMMANDS=help version exit restart shutdown code cmd cls calc py admin"
 CD /d %~dp0
 
 
@@ -13,6 +16,7 @@ CD /d %~dp0
 @REM Section for custom personalization on run actions
 :PRECONFIG
 ECHO Loading preconfig...
+
 ECHO Checking ShareX...
 SET "sharex_folder="
 FOR /F "delims=" %%A IN ('DIR /B /AD "%~dp0Programas\ShareX-*-portable" 2^>nul ^| SORT /R') DO (
@@ -24,12 +28,47 @@ IF DEFINED sharex_folder (
     TASKLIST /FI "IMAGENAME eq ShareX.exe" | FIND /I "ShareX.exe" >NUL || START "ShareX Portable" /MIN /REALTIME "%~dp0Programas\%sharex_folder%\ShareX.exe"
 )
 
+ECHO Start Chrome as guest...
+start "" /min "chrome" --guest
+
 ECHO Cheking admin...
 net session >nul 2>&1
 IF %ERRORLEVEL% == 0 (
     SET "cmd_ADMIN=[ADMIN]"
+) else (
+    GOTO :MAIN
 )
 
+ECHO Adding reg keys...
+ECHO Copy as Path...
+reg add "HKEY_CLASSES_ROOT\Allfilesystemobjects\shell\windows.copyaspath" /ve /d "Copy &as path" /f
+reg add "HKEY_CLASSES_ROOT\Allfilesystemobjects\shell\windows.copyaspath" /v "Icon" /t REG_SZ /d "imageres.dll,-5302" /f
+reg add "HKEY_CLASSES_ROOT\Allfilesystemobjects\shell\windows.copyaspath" /v "InvokeCommandOnSelection" /t REG_DWORD /d 1 /f
+reg add "HKEY_CLASSES_ROOT\Allfilesystemobjects\shell\windows.copyaspath" /v "VerbHandler" /t REG_SZ /d "{f3d06e7c-1e45-4a26-847e-f9fcdee59be0}" /f
+reg add "HKEY_CLASSES_ROOT\Allfilesystemobjects\shell\windows.copyaspath" /v "VerbName" /t REG_SZ /d "copyaspath" /f
+
+ECHO Open with notepad...
+reg add "HKEY_CLASSES_ROOT\*\shell\Open With Notepad" /v "Icon" /t REG_SZ /d "C:\Windows\System32\notepad.exe, 2" /f
+reg add "HKEY_CLASSES_ROOT\*\shell\Open With Notepad\command" /ve /d "notepad.exe %1" /f
+
+ECHO Seconds on explorer...
+reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v "ShowSecondsInSystemClock" /t REG_DWORD /d 1 /f
+
+ECHO Old volume applet...
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\MTCUVC" /v "EnableMtcUvc" /t REG_DWORD /d 0 /f
+
+ECHO Theme toggler...
+reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /v "MUIVerb" /d "Set Windows theme" /f
+reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /v "Icon" /d "%%SystemRoot%%\System32\imageres.dll,-183" /f
+reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /v "SubCommands" /d "" /f
+
+REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme\shell\Dark" /v "MUIVerb" /d "Enable Dark mode" /f
+REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme\shell\Dark\command" /ve /d "cmd /q /c \"taskkill /im explorer.exe /f && reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v AppsUseLightTheme REM /t REG_DWORD /d 0 /f && reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v SystemUsesLightTheme /t REG_DWORD /d 0 /f && start explorer.exe\"" /f
+
+REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme\shell\Light" /v "MUIVerb" /d "Enable Light mode" /f
+REM reg add "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme\shell\Light\command" /ve /d "cmd /q /c \"taskkill /im explorer.exe /f && reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v AppsUseLightTheme /t REG_DWORD /d 1 /f && reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v SystemUsesLightTheme /t REG_DWORD /d 1 /f && start explorer.exe\"" /f
+
+:FROM_RESTART
 
 GOTO :MAIN
 @REM #endregion
@@ -61,7 +100,7 @@ IF /I [!_cmd!]==[ADMIN] (GOTO :ADMIN)
 @REM #region MAIN
 :MAIN
 IF /I NOT [%1]==[DEV] (@CLS )
-ECHO Hppsrc CMD ^| %cmd_VERSION% %cmd_ADMIN%
+ECHO Hppsrc CMD ^| %cmd_VERSION% %cmd_ADMIN%%_temp%
 ECHO Type HELP for help
 ECHO ====================
 :LOOP
@@ -93,15 +132,17 @@ ECHO Commands:
 ECHO    HELP        Show this help message
 ECHO    VERSION     Show Hppsrc CMD version
 ECHO    EXIT        Close Hppsrc CMD ^*
-ECHO    RESTART     Restart the current Hppsrc CMD session
+ECHO    RESTART     Restart the current Hppsrc CMD session ^*^*
 ECHO    SHUTDOWN    Shutdown the PC ^*
 ECHO    CODE        Launch VS Code in isolated mode
 ECHO    CMD         Open a new Windows CMD window
 ECHO    CLS         Clear screen and refresh Hppsrc CMD
 ECHO    CALC        Open a simple CLI based calculator
 ECHO    PY          Open a Python CLI ^(Args allowed^)
+ECHO    ADMIN       Tries to restart as admin
 ECHO.
-ECHO ^* Requires confirmation code
+ECHO ^*    Requires confirmation code
+ECHO ^*^*   Doesn^'t unset any config
 GOTO :END
 
 
@@ -129,8 +170,9 @@ GOTO :END
 
 
 :RESTART
-START /SEPARATE /REALTIME %~f0
+START /SEPARATE /REALTIME %~f0 RESTART
 GOTO :KILL
+
 
 :SHUTDOWN
 ECHO Shutdown PC
@@ -140,7 +182,7 @@ SET /P "cmd_CONFIRM=> "
 
 IF /I "%cmd_CONFIRM%"=="%cmd_STATIC_RANDOM%" (
     ECHO Shutdown PC...
-    SHUTDOWN /f /t 0 /s
+    SET "cmd_POST_EXECUTION=shutdown ^/f ^/t 0 ^/s"
     GOTO :KILL_UNCONFIG
 ) ELSE (
     ECHO Incorrect code. Type EXIT again to retry.
@@ -150,7 +192,7 @@ GOTO :END
 
 
 :CODE
-ECHO Vscode started...
+ECHO VScode started...
 START "" /SEPARATE /REALTIME code --extensions-dir "%temp%\vs-extension" --user-data-dir "%temp%\vsdata"
 GOTO :END
 
@@ -214,10 +256,22 @@ GOTO :LOOP
 
 :KILL_UNCONFIG
 ECHO Starting unconfig...
+ECHO Killing ShareX...
+TASKKILL /IM ShareX.exe /F
+
+ECHO Removing RegKeys...
+reg delete "HKEY_CLASSES_ROOT\Allfilesystemobjects\shell\windows.copyaspath" /f
+reg delete "HKEY_CLASSES_ROOT\*\shell\Open With Notepad" /f
+reg delete "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v "ShowSecondsInSystemClock" /f
+reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\MTCUVC" /v "EnableMtcUvc" /f
+reg delete "HKEY_CLASSES_ROOT\DesktopBackground\Shell\WindowsTheme" /f
 
 :EXIT
+ENDLOCAL
+%cmd_POST_EXECUTION%
 CLS && EXIT /B
 
 :KILL
+ENDLOCAL
 EXIT
 
