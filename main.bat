@@ -14,7 +14,7 @@ SHIFT
 GOTO :PARSE_ARGS
 :END_PARSE_ARGS
 
-@SET "cmd_VERSION=1.6.0" && @SET "cmd_BUILD=25112500"
+@SET "cmd_VERSION=1.6.1" && @SET "cmd_BUILD=25112500"
 @SET /A cmd_STATIC_RANDOM=(%RANDOM%%%(999-100+1))+999 && @SET "cmd_RUNTIME=%TIME%" && @SET "cmd_TEMP_FOLDER=%temp%\HppsrcCMD"
 @SET "COMMANDS=help version exit restart shutdown code cmd cls calc py python admin folder powershell pwsh ps scrcpy random chrome config"
 @SET "cmd_CHROME_SITES="
@@ -461,7 +461,7 @@ IF "%cmd_SCRCPY_OPTION%"=="1" (
 	SET "cmd_SCRCPY_ARGS="
 )
 
-START "ScrCpy" /SEPARATE /REALTIME "%appdata%\Hppsrc\HppsrcCMD\ScrCpy\scrcpy.exe" -b 5M -m 900 --max-fps=40 --video-codec=h264 --no-audio-playback
+START "ScrCpy" /SEPARATE /REALTIME "%appdata%\Hppsrc\HppsrcCMD\ScrCpy\scrcpy.exe" !cmd_SCRCPY_ARGS!
 
 GOTO :END
 
